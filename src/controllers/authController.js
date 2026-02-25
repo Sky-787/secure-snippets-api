@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const asyncHandler = require('../utils/asyncHandler');
 
 // Generar JWT
 const generateToken = (id) => {
@@ -11,64 +12,51 @@ const generateToken = (id) => {
 // @desc    Registrar nuevo usuario
 // @route   POST /api/v1/auth/register
 // @access  Public
-const register = async (req, res) => {
+const register = asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
 
-    try {
-        // Verificar si el usuario ya existe
-        const userExists = await User.findOne({ $or: [{ email }, { username }] });
-        if (userExists) {
-            return res.status(400).json({ message: 'El usuario o email ya está registrado' });
-        }
-
-        // Crear usuario (el pre-save hook se encarga del hash)
-        const user = await User.create({ username, email, password });
-
-        res.status(201).json({
-            message: 'Usuario registrado exitosamente',
-            token: generateToken(user._id),
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-            },
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Error del servidor', error: error.message });
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    if (userExists) {
+        res.statusCode = 400;
+        throw new Error('El usuario o email ya está registrado');
     }
-};
+
+    const user = await User.create({ username, email, password });
+
+    res.status(201).json({
+        success: true,
+        message: 'Usuario registrado exitosamente',
+        token: generateToken(user._id),
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+        },
+    });
+});
 
 // @desc    Iniciar sesión
 // @route   POST /api/v1/auth/login
 // @access  Public
-const login = async (req, res) => {
+const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
-    try {
-        // Buscar usuario por email
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        // Verificar contraseña
-        const isMatch = await user.matchPassword(password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        res.status(200).json({
-            message: 'Inicio de sesión exitoso',
-            token: generateToken(user._id),
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-            },
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Error del servidor', error: error.message });
+    const user = await User.findOne({ email });
+    if (!user || !(await user.matchPassword(password))) {
+        res.statusCode = 401;
+        throw new Error('Credenciales inválidas');
     }
-};
+
+    res.status(200).json({
+        success: true,
+        message: 'Inicio de sesión exitoso',
+        token: generateToken(user._id),
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+        },
+    });
+});
 
 module.exports = { register, login };

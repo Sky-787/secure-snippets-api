@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const connectDB = require('./src/config/db');
+const errorHandler = require('./src/middleware/errorHandler');
 
 // Conectar a MongoDB
 connectDB();
@@ -16,19 +17,16 @@ app.use('/api/v1/snippets', require('./src/routes/snippetRoutes'));
 
 // Ruta base
 app.get('/', (req, res) => {
-    res.json({ message: '🔒 DevLocker API v1 funcionando correctamente' });
+    res.json({ success: true, message: 'DevLocker API v1 funcionando correctamente' });
 });
 
 // Manejador de rutas no encontradas
 app.use((req, res) => {
-    res.status(404).json({ message: 'Ruta no encontrada' });
+    res.status(404).json({ success: false, status: 404, message: 'Ruta no encontrada' });
 });
 
-// Manejo global de errores
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Error interno del servidor' });
-});
+// Middleware global de errores (debe ir al final, con 4 parámetros)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
